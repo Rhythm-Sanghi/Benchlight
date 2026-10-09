@@ -66,3 +66,14 @@ supports WebView zoom shortcuts. Native 200% review confirms Settings reflow and
 Project inspector keyboard reachability. NSIS, matching source and checksums are
 refreshed. Spoken screen-reader output and global Windows text scaling remain
 separate manual compatibility checks.
+
+
+## Publishing a release
+
+Write release notes in `docs/releases/<version>.md`, run the local checks and
+push the corresponding `v<version>` tag. The Windows release workflow checks
+and builds that commit, creates the source archive and checksums, uploads all
+five assets to a draft, then publishes it as an early-release prerelease.
+`scripts/publish-release.ps1` requires a tag matching the package version. If an
+upload fails, inspect the draft before retrying; the script does not overwrite
+existing releases.
