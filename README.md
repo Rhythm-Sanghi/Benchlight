@@ -43,9 +43,9 @@ Restored items have staging names; logs retain original paths. Read
 Storage usage, installed tools and a saved project comparison. Sizes and tool
 versions shown here come from the development machine.
 
-![Space: measured directories and recreation evidence](docs/screenshots/space-dark.png)
-![Tools: local executables and provenance](docs/screenshots/tools-dark.png)
-![Changes: a saved working state compared with current observations](docs/screenshots/changes-light.png)
+![Space: measured directories and storage classifications](docs/screenshots/space.png)
+![Tools: local executables and installation evidence](docs/screenshots/tools.png)
+![Changes: a saved working state compared with current observations](docs/screenshots/changes.png)
 
 ## CLI
 
