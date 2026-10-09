@@ -45,7 +45,8 @@ cover preservation of earlier metadata and rejection of newer schemas.
   files, replaced directories, changed evidence and junction substitutions.
   No repository build output or dependency directory was recycled in UI review.
 
-These checks ran locally; a hosted CI run and code signing are not established.
+These checks ran locally. Windows CI now runs on GitHub Actions; code signing
+is not configured.
 Live OneDrive hydration, physical removable drives, unusual case-sensitive NTFS
 directories and different-version installer upgrades are unverified. See scanner
 and cleanup documentation for conservative handling and limits.

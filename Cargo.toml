@@ -22,4 +22,3 @@ benchlight-platform-windows = { path = "crates/benchlight-platform-windows" }
 [profile.release]
 lto = "thin"
 strip = true
-

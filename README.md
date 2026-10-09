@@ -126,7 +126,7 @@ security problems privately as described in [SECURITY.md](SECURITY.md).
 Verified checks: formatting, Clippy with warnings denied, 36 Rust tests, frontend
 formatting/lint/typecheck, 20 frontend tests, 80 text-contrast checks and production build. Native release
 screens, fixture recycling, installer lifecycle and WebView outbound-blocked
-operation were reviewed on Windows. Hosted CI has not run. Different-version
+operation were reviewed on Windows. Windows CI runs on GitHub Actions. Different-version
 installer upgrades and live OneDrive/removable-drive cases remain unverified.
 
 ## Scope and limits
