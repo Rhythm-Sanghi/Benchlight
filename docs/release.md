@@ -1,85 +1,45 @@
-# Windows release verification
+# Windows releases
 
-Release 0.1.0 targets Windows 11 x86-64, uses the per-user NSIS installer and
-bundles the CLI, UI assets, application icon, GPL license and dependency notices.
-WebView2 must already be present. There is no updater or runtime asset download.
+Benchlight uses a per-user NSIS installer for Windows 11 x86-64. It bundles the
+desktop app, CLI, UI assets, license and dependency notices. WebView2 must already
+be installed. Releases are currently unsigned.
 
-## Reproduce
+## Build and verify
 
-1. Install the build prerequisites described in the README; run `npm ci` in
-   `apps/desktop`.
-2. From the repository root run `scripts/check.ps1`.
-3. In `apps/desktop` run `npm run tauri build`.
-4. From the root run `scripts/test-installer.ps1 -Installer
+1. Install the prerequisites in the [README](../README.md#build-and-check) and
+   run `npm ci` in `apps/desktop`.
+2. From the repository root, run `scripts/check.ps1`.
+3. In `apps/desktop`, run `npm run tauri build`.
+4. From the root, run `scripts/test-installer.ps1 -Installer
    target/release/bundle/nsis/Benchlight_0.1.0_x64-setup.exe`.
-5. Run `scripts/source-archive.ps1` after finalizing source and documentation.
-   Distribute that archive with the installer and CLI. Preserve license notices.
+5. Run `scripts/source-archive.ps1` against the finalized source. Distribute the
+   matching archive and dependency notices with the binaries.
 
-The installer test refuses to replace an existing user installation. It uses
-workspace-local installation and metadata directories, scans the checked-in
-fixtures with the installed CLI, reinstalls the same version, checks persisted
-roots/scan identity, uninstalls and verifies metadata survives. It also checks
-that installed executables match release SHA-256 hashes (allowing only Tauri's
-documented UNK-to-NSS bundle marker patch for the desktop executable), license
-notices are present, and metadata co-located with the binaries survives uninstall
-and remains readable. Review an existing test directory before retrying.
-Same-version reinstall is not proof of a different-version upgrade; that needs
-another release. SQLite migration tests
-cover preservation of earlier metadata and rejection of newer schemas.
+The installer test uses workspace-local directories and refuses to replace an
+existing user installation. It checks fixture scans, same-version reinstall,
+executable hashes, license notices, uninstall and database preservation. The
+hash check allows Tauri's documented UNK-to-NSS bundle marker patch. Review an
+existing test directory before retrying.
 
-## Manual review on 2026-10-07
+## Manual checks
 
-- Bundled executable opened with Vite stopped and WebView outbound requests
-  blocked through test-process-only proxy/DNS arguments. No Windows network or
-  privacy setting was changed. First launch displayed folder selection and no
-  automatic scan.
-- Explicit repository root selection and scan completed with 14 projects and no
-  errors. The metadata exclusion left the Rust target directory partial and
-  ineligible for cleanup. Fixture projects were discovered as normal directories.
-- Native Projects sorting, row inspection, Shift+F10 menu, Escape focus return,
-  keyboard resizing and pointer column resizing were reviewed.
-- Space evidence/classification, Tools active/shadowed paths and Unknown origins,
-  Changes baseline/comparison and light/dark appearance were reviewed. Actual
-  screenshots live in `docs/screenshots`.
-- Fixture-only native cleanup tests confirmed Shell recycling and rejected locked
-  files, replaced directories, changed evidence and junction substitutions.
-  No repository build output or dependency directory was recycled in UI review.
+Before a release, review navigation, both themes, narrow windows, keyboard focus,
+zoom, an explicit scan and a saved snapshot comparison. Test cleanup only on
+throwaway fixture directories, including changed evidence, locks and junctions.
+Check that the bundled app opens without the development server or network access.
 
-These checks ran locally. Windows CI now runs on GitHub Actions; code signing
-is not configured.
-Live OneDrive hydration, physical removable drives, unusual case-sensitive NTFS
-directories and different-version installer upgrades are unverified. See scanner
-and cleanup documentation for conservative handling and limits.
+For 0.1.0, installer lifecycle, fixture recycling and offline operation were
+reviewed on October 7, 2026. The rebuilt interface was reviewed on October 8,
+including an 800 px window and 200% zoom. Different-version upgrades and the
+remaining platform checks are listed in [compatibility notes](../STATUS.md).
 
-## Workshop Grid revision on 2026-10-08
+## Publish
 
-The existing frontend has been redesigned with a fixed compact shell, semantic
-light/dark tokens, ruled tables and resizable inspectors. Native review covers
-both themes, an 800 px window, scan/comparison flows and keyboard focus return.
-The NSIS bundle is rebuilt with these frontend assets. This revision preserves the
-backend and packaging behavior; the installer lifecycle review above remains the
-2026-10-07 check. See [Workshop Grid](workshop-grid.md) for the detailed UI record.
+Write release notes in `docs/releases/<version>.md`, run the checks and push a
+`v<version>` tag matching the package version. The Windows release workflow checks
+and builds that commit, creates the source archive and SHA-256 checksums, uploads
+five assets to a draft and publishes an early-release prerelease.
 
-
-The UI follow-up saves widths, improves drawer focus and text contrast, and
-supports WebView zoom shortcuts. Native 200% review confirms Settings reflow and
-Project inspector keyboard reachability. NSIS, matching source and checksums are
-refreshed. Spoken screen-reader output and global Windows text scaling remain
-separate manual compatibility checks.
-
-
-## Publishing a release
-
-Write release notes in `docs/releases/<version>.md`, run the local checks and
-push the corresponding `v<version>` tag. The Windows release workflow checks
-and builds that commit, creates the source archive and checksums, uploads all
-five assets to a draft, then publishes it as an early-release prerelease.
-`scripts/publish-release.ps1` requires a tag matching the package version. If an
-upload fails, inspect the draft before retrying; the script does not overwrite
-existing releases.
-
-
-The first hosted check exposed an exclusion mismatch when Windows TEMP used an
-8.3 alias. Existing safe local exclusions now resolve to canonical paths before
-comparison. The unchanged overlapping-roots test and two focused path tests
-cover the fix. The unreleased tag was updated before publishing any assets.
+`scripts/publish-release.ps1` does not overwrite existing releases. If an upload
+fails, inspect the draft before retrying. Keep published tags and their matching
+source archives unchanged; use a new version for subsequent binary releases.

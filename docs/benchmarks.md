@@ -6,7 +6,7 @@ development measurements, not representative speed guarantees.
 
 | Run | Scan | 100 page queries | Cancellation | Sampled process working set peak |
 | --- | --- | --- | --- | --- |
-| Stage 6 | 5,570 ms | 42 ms | 8 ms | 7,892,992 bytes |
+| 0.1.0 | 5,570 ms | 42 ms | 8 ms | 7,892,992 bytes |
 
 Cancellation was requested 100 ms after starting a second scan and the scanner
 returned `cancelled`. Windows/network reads can still block longer. Memory is

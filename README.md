@@ -4,8 +4,8 @@
 
 Benchlight is a Windows utility for understanding developer disk usage, installed
 tools, and what changed since a project last worked. The desktop and CLI share a
-Rust core and local SQLite database. No account, cloud service, AI model, telemetry,
-or runtime internet connection is required.
+Rust core and local SQLite database. It runs locally without an account,
+telemetry or a runtime internet connection.
 
 Version 0.1.0 is an early release for Windows 11 x86-64. Nothing scans on
 launch. Select project folders and start a scan yourself.
@@ -40,13 +40,8 @@ Restored items have staging names; logs retain original paths. Read
 
 ## Screenshots
 
-Actual Windows release windows using this repository and this machine's PATH with
-isolated metadata. Fixture projects are checked-in test directories discovered by
-the scan, not prepopulated application data.
-
-The existing desktop UI uses [Workshop Grid](docs/workshop-grid.md): compact
-work areas, ruled tables, semantic light/dark tokens and resizable inspectors.
-These screenshots show the rebuilt 2026-10-08 frontend.
+Storage usage, installed tools and a saved project comparison. Sizes and tool
+versions shown here come from the development machine.
 
 ![Space: measured directories and recreation evidence](docs/screenshots/space-dark.png)
 ![Tools: local executables and provenance](docs/screenshots/tools-dark.png)
@@ -146,7 +141,7 @@ observed differences without claiming they caused a failure.
 Details: [scanner](docs/scanner.md), [benchmarks](docs/benchmarks.md),
 [tools](docs/tools.md), [snapshots](docs/snapshots.md),
 [safety model](docs/safety-model.md), [architecture](docs/architecture.md),
-[release verification](docs/release.md), [verified status](STATUS.md).
+[release guide](docs/release.md), [compatibility notes](STATUS.md).
 
 ## License
 
