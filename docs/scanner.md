@@ -47,3 +47,8 @@ Cache references: [pip](https://pip.pypa.io/en/stable/topics/caching/),
 [Cargo](https://doc.rust-lang.org/cargo/guide/cargo-home.html),
 [Gradle](https://docs.gradle.org/current/userguide/directory_layout.html),
 [Poetry](https://python-poetry.org/docs/configuration/).
+
+
+Existing local exclusions are resolved to canonical paths before comparison,
+including Windows 8.3 aliases. Missing exclusions remain configured for future
+scans. Network paths and reparse paths are not canonicalized for this purpose.

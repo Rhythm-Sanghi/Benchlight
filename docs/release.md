@@ -77,3 +77,9 @@ five assets to a draft, then publishes it as an early-release prerelease.
 `scripts/publish-release.ps1` requires a tag matching the package version. If an
 upload fails, inspect the draft before retrying; the script does not overwrite
 existing releases.
+
+
+The first hosted check exposed an exclusion mismatch when Windows TEMP used an
+8.3 alias. Existing safe local exclusions now resolve to canonical paths before
+comparison. The unchanged overlapping-roots test and two focused path tests
+cover the fix. The unreleased tag was updated before publishing any assets.

@@ -5,6 +5,7 @@
 First public early release for Windows 11 x86-64.
 
 - Inspect developer disk usage, projects and installed PATH tools.
+- Match excluded folders consistently when Windows uses short-path aliases.
 - Review storage evidence and create confirmed, revalidated cleanup plans.
 - Save a working project snapshot and compare later observations.
 - Use a local SQLite database shared by the desktop app and CLI.

@@ -123,7 +123,7 @@ with your Windows version, steps to reproduce and expected behavior. Remove
 private paths and project information from logs before sharing them. Report
 security problems privately as described in [SECURITY.md](SECURITY.md).
 
-Verified checks: formatting, Clippy with warnings denied, 36 Rust tests, frontend
+Verified checks: formatting, Clippy with warnings denied, 38 Rust tests, frontend
 formatting/lint/typecheck, 20 frontend tests, 80 text-contrast checks and production build. Native release
 screens, fixture recycling, installer lifecycle and WebView outbound-blocked
 operation were reviewed on Windows. Windows CI runs on GitHub Actions. Different-version

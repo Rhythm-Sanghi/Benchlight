@@ -20,7 +20,7 @@ not scan until you ask. Source and releases live at
 
 ## Verification
 
-Local checks cover Rust formatting, Clippy with warnings denied, 36 Rust tests,
+Local checks cover Rust formatting, Clippy with warnings denied, 38 Rust tests,
 frontend formatting/lint/typechecking, 20 frontend tests, 80 contrast pairs and
 production builds. Three internal subprocess fixtures are invoked by parent tests.
 The Windows workflow repeats these checks and builds the installer.

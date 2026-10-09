@@ -29,6 +29,20 @@ fn within(path: &Path, parent: &Path) -> bool {
     benchlight_platform_windows::contains_path(parent, path)
 }
 
+fn exclusion_path(path: String) -> PathBuf {
+    let path = PathBuf::from(path);
+    // Roots are canonical, but persisted exclusions may use an 8.3 alias (as
+    // Windows TEMP does on hosted runners). Resolve safe, existing local paths
+    // before comparing them. Missing paths stay configured for later scans.
+    if benchlight_platform_windows::ensure_local_root(&path).is_ok()
+        && benchlight_platform_windows::ensure_no_reparse_path(&path).is_ok()
+    {
+        fs::canonicalize(&path).unwrap_or(path)
+    } else {
+        path
+    }
+}
+
 impl Benchlight {
     fn scan_error(
         &self,
@@ -60,7 +74,7 @@ impl Benchlight {
             .status()?
             .exclusions
             .into_iter()
-            .map(PathBuf::from)
+            .map(exclusion_path)
             .collect();
         exclusions.push(self.data_directory.clone());
         let measurement = measure_directory_excluding(
@@ -168,12 +182,15 @@ impl Benchlight {
                 self.scan_error(&mut scan, root, &error)?;
                 continue;
             }
-            let exclusions: Vec<String> = self
+            let exclusions: Vec<PathBuf> = self
                 .database
                 .setting("exclusions")?
-                .map(|json| serde_json::from_str(&json))
+                .map(|json| serde_json::from_str::<Vec<String>>(&json))
                 .transpose()?
-                .unwrap_or_default();
+                .unwrap_or_default()
+                .into_iter()
+                .map(exclusion_path)
+                .collect();
             let mut frames: Vec<Directory> = Vec::new();
             let mut pending = Some(root.clone());
             loop {
@@ -213,10 +230,7 @@ impl Benchlight {
                     scan.skipped += 1;
                     continue;
                 }
-                if exclusions
-                    .iter()
-                    .any(|excluded| within(&path, Path::new(excluded)))
-                {
+                if exclusions.iter().any(|excluded| within(&path, excluded)) {
                     scan.skipped += 1;
                     continue;
                 }
@@ -394,5 +408,32 @@ impl Benchlight {
         scan.finished_at = Some(timestamp());
         self.database.update_scan(&scan)?;
         Ok(scan)
+    }
+}
+
+#[cfg(test)]
+mod exclusion_tests {
+    use super::*;
+
+    #[test]
+    fn existing_local_exclusions_match_canonical_scan_paths() {
+        let fixture = tempfile::tempdir().unwrap();
+        let path = fixture.path().join("excluded directory");
+        fs::create_dir(&path).unwrap();
+        let resolved = exclusion_path(path.to_string_lossy().into_owned());
+        assert_eq!(resolved, fs::canonicalize(&path).unwrap());
+        assert!(within(&resolved.join("nested"), &resolved));
+    }
+
+    #[test]
+    fn missing_and_network_exclusions_are_preserved_without_resolution() {
+        let fixture = tempfile::tempdir().unwrap();
+        let missing = fixture.path().join("not-created");
+        assert_eq!(
+            exclusion_path(missing.to_string_lossy().into_owned()),
+            missing
+        );
+        let network = r"\\benchlight-offline-test.invalid\share\excluded";
+        assert_eq!(exclusion_path(network.into()), PathBuf::from(network));
     }
 }
