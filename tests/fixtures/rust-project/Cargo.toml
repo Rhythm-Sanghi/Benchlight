@@ -1,0 +1,4 @@
+[package]
+name = "benchlight-rust-fixture"
+version = "0.0.0"
+edition = "2024"

@@ -1,0 +1,1 @@
+This directory contains user data. Its name is not project evidence.

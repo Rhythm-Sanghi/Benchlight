@@ -1,0 +1,18 @@
+[package]
+name = "benchlight-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "benchlight"
+path = "src/main.rs"
+
+[dependencies]
+ctrlc = "3.5.2"
+benchlight-core.workspace = true
+serde_json.workspace = true
+clap = { version = "4.5", features = ["derive"] }
+
+[dev-dependencies]
+tempfile.workspace = true

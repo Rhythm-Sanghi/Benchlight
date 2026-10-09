@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Benchlight",
+  "version": "0.1.0",
+  "identifier": "org.benchlight.desktop",
+  "build": { "beforeDevCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/cli-sidecar.ps1 && npm run dev", "devUrl": "http://127.0.0.1:1420", "beforeBuildCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/prepare-release.ps1", "frontendDist": "../dist" },
+  "app": {
+    "windows": [{ "label": "main", "title": "Benchlight", "width": 1100, "height": 740, "minWidth": 800, "minHeight": 560, "zoomHotkeysEnabled": true }],
+    "security": { "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'" }
+  },
+  "bundle": { "active": true, "targets": ["nsis"], "icon": ["icons/icon.ico"], "externalBin": ["bin/benchlight"], "resources": { "../../../LICENSE": "LICENSE", "../../../docs/third-party/": "third-party/" }, "windows": { "webviewInstallMode": { "type": "skip" }, "nsis": { "installMode": "currentUser" } } }
+}

@@ -1,0 +1,19 @@
+/target/
+/apps/desktop/node_modules/
+/apps/desktop/dist/
+/apps/desktop/src-tauri/gen/
+/apps/desktop/src-tauri/bin/*.exe
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Local credentials and editor/OS files
+.env
+.env.*
+!.env.example
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp

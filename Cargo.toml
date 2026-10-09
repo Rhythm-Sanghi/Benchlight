@@ -1,0 +1,25 @@
+[workspace]
+members = ["crates/*", "apps/desktop/src-tauri"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "GPL-3.0-or-later"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+tempfile = "3.23"
+benchlight-core = { path = "crates/benchlight-core" }
+benchlight-db = { path = "crates/benchlight-db" }
+benchlight-storage = { path = "crates/benchlight-storage" }
+benchlight-platform-windows = { path = "crates/benchlight-platform-windows" }
+
+[profile.release]
+lto = "thin"
+strip = true
+

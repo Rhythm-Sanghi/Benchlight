@@ -1,0 +1,20 @@
+[package]
+name = "benchlight-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+benchlight-db.workspace = true
+benchlight-platform-windows.workspace = true
+benchlight-storage.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+sha2 = "0.11.0"
+node-semver = "2.2.0"
+pep440_rs = "0.7.3"
+toml = "1.1.6"
+
+[dev-dependencies]
+tempfile.workspace = true
