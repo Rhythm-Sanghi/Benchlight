@@ -2,19 +2,25 @@ param([Parameter(Mandatory)][string]$Tag)
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
+    $head = (git rev-parse --verify HEAD).Trim()
+    $tagCommit = (git rev-parse --verify "$Tag^{commit}").Trim()
+    if ($LASTEXITCODE -ne 0 -or $head -ne $tagCommit) { throw 'Release tag must identify the checked-out commit' }
     $package = Get-Content apps/desktop/package.json -Raw | ConvertFrom-Json
     if ($Tag -ne "v$($package.version)") { throw 'Release tag must match the package version' }
     $notes = "docs/releases/$($package.version).md"
     if (-not (Test-Path -LiteralPath $notes)) { throw 'Release notes are missing' }
-    & "$PSScriptRoot/source-archive.ps1"
+    & "$PSScriptRoot/source-archive.ps1" -SourceRef $Tag
+    if ($LASTEXITCODE -ne 0) { throw 'Source archive failed' }
     $files = @(
         "target/release/bundle/nsis/Benchlight_$($package.version)_x64-setup.exe",
         'target/release/benchlight-desktop.exe',
         'target/release/benchlight.exe',
-        "target/Benchlight-$($package.version)-source.zip"
+        "target/Benchlight-$($package.version)-source.zip",
+        "target/Benchlight-$($package.version)-source-manifest.json"
     )
     $checksums = "target/Benchlight-$($package.version)-SHA256SUMS.txt"
     $lines = foreach ($file in $files) {
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Missing release artifact: $file" }
         $hash = Get-FileHash -LiteralPath $file -Algorithm SHA256
         "$($hash.Hash.ToLower())  $([System.IO.Path]::GetFileName($file))"
     }

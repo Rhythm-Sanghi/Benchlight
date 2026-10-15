@@ -1,10 +1,14 @@
-param([Parameter(Mandatory = $true)][string]$Installer)
+param(
+    [Parameter(Mandatory = $true)][string]$Installer,
+    [ValidatePattern('^[a-z0-9-]{1,40}$')][string]$RunId
+)
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
     $workspace = (Get-Location).Path
-    $installation = [System.IO.Path]::GetFullPath((Join-Path $workspace 'target/installer-test'))
-    $data = [System.IO.Path]::GetFullPath((Join-Path $workspace 'target/installer-test-data'))
+    $suffix = if ($RunId) { "-$RunId" } else { '' }
+    $installation = [System.IO.Path]::GetFullPath((Join-Path $workspace "target/installer-test$suffix"))
+    $data = [System.IO.Path]::GetFullPath((Join-Path $workspace "target/installer-test-data$suffix"))
     foreach ($path in @($installation,$data)) {
         if (-not $path.StartsWith($workspace + '\', [System.StringComparison]::OrdinalIgnoreCase)) { throw 'Installer test path escaped workspace' }
     }
