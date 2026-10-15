@@ -14,7 +14,8 @@ Windows image and upstream package availability can still change.
 2. From the repository root, run `scripts/check.ps1`.
 3. In `apps/desktop`, run `npm run tauri build`.
 4. From the root, run `scripts/test-installer.ps1 -Installer
-   target/release/bundle/nsis/Benchlight_0.1.0_x64-setup.exe`.
+   target/release/bundle/nsis/Benchlight_<version>_x64-setup.exe -RunId <unique-id>`,
+   replacing both bracketed values.
 5. Run `scripts/source-archive.ps1 -SourceRef <tag>` against the finalized
    commit. It packages committed files only, verifies package/Tauri versions,
    and emits an adjacent manifest with commit, tree and archive hash. Distribute
@@ -38,6 +39,8 @@ For 0.1.0, installer lifecycle, fixture recycling and offline operation were
 reviewed on October 7, 2026. The rebuilt interface was reviewed on October 8,
 including an 800 px window and 200% zoom. Different-version upgrades and the
 remaining platform checks are listed in [compatibility notes](../STATUS.md).
+The local 0.1.1 candidate is separate from the published 0.1.0 release; its
+qualification evidence belongs in the 0.1.1 report before any tag or upload.
 
 ## Publish
 

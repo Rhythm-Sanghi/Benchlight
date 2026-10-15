@@ -19,6 +19,8 @@ try {
         Invoke-Git -Arguments @('config', 'user.email', 'archive-test@example.invalid')
         '{"version":"0.2.3"}' | Set-Content apps/desktop/package.json
         '{"version":"0.2.3"}' | Set-Content apps/desktop/src-tauri/tauri.conf.json
+        '[workspace.package]' | Set-Content Cargo.toml
+        'version = "0.2.3"' | Add-Content Cargo.toml
         'committed content' | Set-Content README.md
         'license fixture' | Set-Content LICENSE
         'dependency notices fixture' | Set-Content docs/third-party/README.md
@@ -32,7 +34,7 @@ try {
         $first = Join-Path $outputOne 'Benchlight-0.2.3-source.zip'
         $second = Join-Path $outputTwo 'Benchlight-0.2.3-source.zip'
         $manifest = Get-Content (Join-Path $outputOne 'Benchlight-0.2.3-source-manifest.json') -Raw | ConvertFrom-Json
-        if ($manifest.commit -ne $commit -or $manifest.fileCount -ne 5) { throw 'Archive manifest does not identify the fixture commit' }
+        if ($manifest.commit -ne $commit -or $manifest.fileCount -ne 6) { throw 'Archive manifest does not identify the fixture commit' }
         if ($manifest.archiveSha256 -ne (Get-FileHash $first -Algorithm SHA256).Hash.ToLowerInvariant()) { throw 'Archive hash mismatch' }
         if ((Get-FileHash $first -Algorithm SHA256).Hash -ne (Get-FileHash $second -Algorithm SHA256).Hash) { throw 'Archive is not repeatable' }
         $refusedOverwrite = $false

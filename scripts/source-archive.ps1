@@ -20,6 +20,10 @@ try {
     $tauriJson = git show "${commit}:apps/desktop/src-tauri/tauri.conf.json"
     if ($LASTEXITCODE -ne 0) { throw 'Committed Tauri configuration is missing' }
     if (($tauriJson -join "`n" | ConvertFrom-Json).version -ne $version) { throw 'Committed package and Tauri versions differ' }
+    $cargoToml = git show "${commit}:Cargo.toml"
+    if ($LASTEXITCODE -ne 0) { throw 'Committed Cargo workspace metadata is missing' }
+    $cargoVersion = [regex]::Match(($cargoToml -join "`n"), '(?m)^version\s*=\s*"([^"]+)"').Groups[1].Value
+    if ($cargoVersion -ne $version) { throw 'Committed package and Cargo workspace versions differ' }
     foreach ($required in @('LICENSE', 'docs/third-party/README.md')) {
         git cat-file -e "${commit}:$required" 2>$null
         if ($LASTEXITCODE -ne 0) { throw "Committed legal notice is missing: $required" }

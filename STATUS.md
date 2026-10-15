@@ -1,7 +1,8 @@
 # Compatibility notes
 
-Benchlight 0.1.0 targets Windows 11 x86-64. The release is unsigned and requires
-WebView2. There is no automatic updater.
+Published Benchlight 0.1.0 targets Windows 11 x86-64. The release is unsigned
+and requires WebView2. A local 0.1.1 candidate is under qualification; it has
+not been published. There is no automatic updater.
 
 Tested locally: native navigation, light/dark themes, an 800 px window, 200% zoom,
 keyboard focus, repository scanning, snapshot comparison and fixture cleanup.
@@ -26,5 +27,6 @@ can overlap. Partial measurements cannot authorize cleanup. Read the
 Tool discovery reflects the application's PATH, so aliases and runtime-manager
 choices may differ from your shell. Some installation origins, workspace-inherited
 Cargo constraints and Python prerelease requirements can remain Unknown.
-Snapshots record environment-variable presence, not values, and history has no
-retention policy. See the [README](README.md#scope-and-limits) for feature limits.
+Snapshots record environment-variable presence, not values. The local 0.1.1
+candidate can remove older history after exact confirmation but does not prune
+it automatically. See the [README](README.md#scope-and-limits) for feature limits.
