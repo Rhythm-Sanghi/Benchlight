@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::io::Read;
 pub mod fingerprint;
 use std::{
+    collections::HashSet,
+    ffi::OsString,
     fs, io,
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
@@ -210,27 +212,42 @@ pub fn measure_directory_excluding(
         return result;
     }
     let mut pending = Some(path.to_path_buf());
-    let mut frames: Vec<(fs::ReadDir, PathBuf, std::time::SystemTime)> = Vec::new();
+    let mut frames: Vec<(
+        fs::ReadDir,
+        PathBuf,
+        std::time::SystemTime,
+        HashSet<OsString>,
+        bool,
+    )> = Vec::new();
     loop {
         if cancel.load(Ordering::Relaxed) {
             result.cancelled = true;
             break;
         }
         let next = pending.take().or_else(|| {
-            while let Some((entries, parent, before)) = frames.last_mut() {
+            while let Some((entries, parent, before, names, too_many)) = frames.last_mut() {
                 match entries.next() {
-                    Some(Ok(entry)) => return Some(entry.path()),
+                    Some(Ok(entry)) => {
+                        if names.len() < 100_000 {
+                            names.insert(entry.file_name());
+                        } else {
+                            *too_many = true;
+                        }
+                        return Some(entry.path());
+                    }
                     Some(Err(failure)) => {
                         result.errors += 1;
                         error(parent, &failure);
                     }
                     None => {
-                        if fs::symlink_metadata(&*parent)
+                        let timestamp_changed = fs::symlink_metadata(&*parent)
                             .and_then(|metadata| metadata.modified())
                             .ok()
                             .as_ref()
-                            != Some(before)
-                        {
+                            != Some(before);
+                        let membership_changed = *too_many
+                            || !matches_directory_membership(parent, names).unwrap_or(false);
+                        if timestamp_changed || membership_changed {
                             result.errors += 1;
                             error(
                                 parent,
@@ -266,7 +283,13 @@ pub fn measure_directory_excluding(
                 if frames.len() >= 128 {
                     return Err(io::Error::other("Directory depth limit reached."));
                 }
-                frames.push((fs::read_dir(&path)?, path.clone(), metadata.modified()?));
+                frames.push((
+                    fs::read_dir(&path)?,
+                    path.clone(),
+                    metadata.modified()?,
+                    HashSet::new(),
+                    false,
+                ));
             }
             Ok(())
         })();
@@ -277,6 +300,17 @@ pub fn measure_directory_excluding(
         progress(&result);
     }
     result
+}
+
+fn matches_directory_membership(path: &Path, names: &HashSet<OsString>) -> io::Result<bool> {
+    let mut count = 0;
+    for entry in fs::read_dir(path)? {
+        count += 1;
+        if count > names.len() || !names.contains(&entry?.file_name()) {
+            return Ok(false);
+        }
+    }
+    Ok(count == names.len())
 }
 
 pub fn modified(path: &Path) -> Option<u64> {
@@ -358,7 +392,7 @@ mod tests {
         );
     }
     #[test]
-    fn changing_directory_membership_is_reported_as_partial() {
+    fn membership_change_is_observed_or_reported_as_partial() {
         let root = tempfile::tempdir().unwrap();
         fs::write(root.path().join("one"), [0; 7]).unwrap();
         let mut changed = false;
@@ -374,6 +408,20 @@ mod tests {
             },
         );
         assert!(changed);
-        assert!(measurement.errors > 0);
+        // Windows may include a new entry in an already-open directory iterator.
+        // A complete result is valid only when the new file was measured too.
+        assert!(
+            measurement.errors > 0 || (measurement.files == 2 && measurement.logical_bytes == 10),
+            "{measurement:?}"
+        );
+    }
+    #[test]
+    fn membership_recheck_detects_a_new_name_even_without_timestamp_change() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("one"), [0; 7]).unwrap();
+        let observed = HashSet::from([OsString::from("one")]);
+        assert!(matches_directory_membership(root.path(), &observed).unwrap());
+        fs::write(root.path().join("new"), [0; 3]).unwrap();
+        assert!(!matches_directory_membership(root.path(), &observed).unwrap());
     }
 }

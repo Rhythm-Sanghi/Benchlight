@@ -77,6 +77,30 @@ impl Database {
             )
             .optional()
     }
+    pub fn snapshot_history_size(&self, project: &str) -> Result<(i64, i64)> {
+        self.0.query_row(
+            "SELECT COUNT(*), COALESCE(SUM(LENGTH(CAST(detail AS BLOB))),0) FROM working_snapshots WHERE project=?1",
+            [project],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+    }
+    pub fn remove_older_snapshots(&self, project: &str, expected_count: i64) -> Result<usize> {
+        let transaction = self.0.unchecked_transaction()?;
+        let actual: i64 = transaction.query_row(
+            "SELECT COUNT(*) FROM working_snapshots WHERE project=?1",
+            [project],
+            |row| row.get(0),
+        )?;
+        if actual != expected_count || actual < 2 {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        let removed = transaction.execute(
+            "DELETE FROM working_snapshots WHERE project=?1 AND id<>(SELECT MAX(id) FROM working_snapshots WHERE project=?1)",
+            [project],
+        )?;
+        transaction.commit()?;
+        Ok(removed)
+    }
     pub fn save_tools(&self, tools: &[(String, String, String)], errors: &str) -> Result<()> {
         let transaction = self.0.unchecked_transaction()?;
         transaction.execute("DELETE FROM tool_observations", [])?;
@@ -97,11 +121,18 @@ impl Database {
     }
 
     pub fn create_cleanup_plan(&self, created_at: i64, detail: &str) -> Result<i64> {
-        self.0.execute(
+        let transaction = self.0.unchecked_transaction()?;
+        transaction.execute(
             "INSERT INTO cleanup_plans(created_at,state,detail) VALUES (?1,'preview',?2)",
             params![created_at, detail],
         )?;
-        Ok(self.0.last_insert_rowid())
+        let id = transaction.last_insert_rowid();
+        transaction.execute(
+            "UPDATE cleanup_plans SET detail=json_set(detail,'$.id',?2) WHERE id=?1",
+            params![id, id],
+        )?;
+        transaction.commit()?;
+        Ok(id)
     }
     pub fn cleanup_plan(&self, id: i64) -> Result<Option<String>> {
         use rusqlite::OptionalExtension;
@@ -126,16 +157,26 @@ impl Database {
         )?;
         Ok(())
     }
-    pub fn log_operation(
+    pub fn record_cleanup_transition(
         &self,
-        plan: i64,
-        timestamp: i64,
-        path: &str,
-        state: &str,
-        message: &str,
+        id: i64,
+        plan_state: &str,
+        detail: &str,
+        event: &OperationEvent,
     ) -> Result<()> {
-        self.0.execute("INSERT INTO operation_log(plan_id,timestamp,path,state,message) VALUES (?1,?2,?3,?4,?5)",params![plan,timestamp,path,state,message])?;
-        Ok(())
+        let transaction = self.0.unchecked_transaction()?;
+        if transaction.execute(
+            "UPDATE cleanup_plans SET state=?2,detail=?3 WHERE id=?1",
+            params![id, plan_state, detail],
+        )? != 1
+        {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        transaction.execute(
+            "INSERT INTO operation_log(plan_id,timestamp,path,state,message) VALUES (?1,?2,?3,?4,?5)",
+            params![id, event.timestamp, event.path, event.state, event.message],
+        )?;
+        transaction.commit()
     }
     pub fn operation_log(&self, plan: i64) -> Result<Vec<OperationEvent>> {
         self.0.prepare("SELECT timestamp,path,state,message FROM operation_log WHERE plan_id=?1 ORDER BY id")?.query_map([plan], |row| Ok(OperationEvent {timestamp:row.get(0)?,path:row.get(1)?,state:row.get(2)?,message:row.get(3)?}))?.collect()
@@ -444,5 +485,74 @@ mod tests {
         let database = Database::initialize(connection).unwrap();
         assert_eq!(database.roots().unwrap(), ["C:\\source"]);
         assert!(database.latest_scan().unwrap().is_none());
+    }
+
+    #[test]
+    fn cleanup_plan_identity_and_transition_log_commit_together() {
+        let db = Database::initialize(Connection::open_in_memory().unwrap()).unwrap();
+        let id = db
+            .create_cleanup_plan(1, r#"{"id":0,"state":"preview"}"#)
+            .unwrap();
+        assert_eq!(
+            db.cleanup_plan(id).unwrap().unwrap(),
+            format!(r#"{{"id":{id},"state":"preview"}}"#)
+        );
+        db.record_cleanup_transition(
+            id,
+            "applying",
+            "staged detail",
+            &OperationEvent {
+                timestamp: 2,
+                path: "original".into(),
+                state: "staging".into(),
+                message: "recovery".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            db.cleanup_plan(id).unwrap().as_deref(),
+            Some("staged detail")
+        );
+        assert_eq!(db.operation_log(id).unwrap().len(), 1);
+        db.0.execute_batch("CREATE TRIGGER reject_log BEFORE INSERT ON operation_log BEGIN SELECT RAISE(ABORT, 'injected log failure'); END;").unwrap();
+        assert!(
+            db.record_cleanup_transition(
+                id,
+                "complete",
+                "recycled detail",
+                &OperationEvent {
+                    timestamp: 3,
+                    path: "original".into(),
+                    state: "recycled".into(),
+                    message: "done".into()
+                }
+            )
+            .is_err()
+        );
+        assert_eq!(
+            db.cleanup_plan(id).unwrap().as_deref(),
+            Some("staged detail")
+        );
+        assert_eq!(db.operation_log(id).unwrap().len(), 1);
+    }
+    #[test]
+    fn snapshot_history_removal_keeps_latest_and_rejects_stale_count() {
+        let db = Database::initialize(Connection::open_in_memory().unwrap()).unwrap();
+        db.save_working_snapshot("C:\\a", 1, "old").unwrap();
+        db.save_working_snapshot("C:\\b", 1, "other").unwrap();
+        db.save_working_snapshot("C:\\a", 2, "newest").unwrap();
+        assert_eq!(db.snapshot_history_size("C:\\a").unwrap(), (2, 9));
+        assert!(db.remove_older_snapshots("C:\\a", 3).is_err());
+        assert_eq!(
+            db.working_snapshot("C:\\a").unwrap().as_deref(),
+            Some("newest")
+        );
+        assert_eq!(db.remove_older_snapshots("C:\\a", 2).unwrap(), 1);
+        assert_eq!(db.snapshot_history_size("C:\\a").unwrap(), (1, 6));
+        assert_eq!(
+            db.working_snapshot("C:\\b").unwrap().as_deref(),
+            Some("other")
+        );
+        assert!(db.remove_older_snapshots("C:\\a", 1).is_err());
     }
 }

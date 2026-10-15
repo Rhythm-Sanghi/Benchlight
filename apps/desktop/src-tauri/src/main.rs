@@ -34,6 +34,28 @@ fn working_snapshot(
         .map_err(|e| e.to_string())
 }
 #[tauri::command]
+fn snapshot_history_size(
+    path: std::path::PathBuf,
+    app: tauri::State<'_, App>,
+) -> Result<benchlight_core::snapshots::SnapshotHistorySize, String> {
+    app.lock()
+        .map_err(|e| e.to_string())?
+        .snapshot_history_size(&path)
+        .map_err(|e| e.to_string())
+}
+#[tauri::command]
+fn remove_older_snapshots(
+    path: std::path::PathBuf,
+    expected_count: i64,
+    confirmation: String,
+    app: tauri::State<'_, App>,
+) -> Result<benchlight_core::snapshots::SnapshotHistorySize, String> {
+    app.lock()
+        .map_err(|e| e.to_string())?
+        .remove_older_snapshots(&path, expected_count, &confirmation)
+        .map_err(|e| e.to_string())
+}
+#[tauri::command]
 async fn mark_working(
     path: std::path::PathBuf,
     app: tauri::State<'_, App>,
@@ -352,6 +374,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             export_logs,
             working_snapshot,
+            snapshot_history_size,
+            remove_older_snapshots,
             mark_working,
             compare_working,
             tools,

@@ -31,8 +31,11 @@ oversized declarations remain Unknown rather than being sent to the UI.
 
 Files are bounded, regular, without reparse ancestors, and opened denying writers
 and deletion while read. Snapshots are observations taken over time, not atomic
-machine images. Unreadable fields compare as Unknown, never Unchanged. Local
-working-state history currently has no retention policy.
+machine images. Unreadable fields compare as Unknown, never Unchanged. The
+Changes screen shows the count and approximate stored metadata bytes for a
+project's working-state history. Removing older records requires typing the
+displayed count; the newest baseline remains. History is never pruned on upgrade.
+The byte figure counts snapshot JSON in SQLite, not database file savings.
 
 CLI `mark-good <project> --health-executable C:\path\cargo.exe --health-arg test`
 explicitly runs that native executable in the project before marking. A failure,

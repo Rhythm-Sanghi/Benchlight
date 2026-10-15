@@ -212,12 +212,35 @@ impl Benchlight {
         plan.id = self
             .database
             .create_cleanup_plan(plan.created_at, &serde_json::to_string(&plan)?)?;
-        self.save_cleanup_plan(&plan)?;
         Ok(plan)
     }
     fn save_cleanup_plan(&self, plan: &CleanupPlan) -> Result<(), Error> {
         self.database
             .update_cleanup_plan(plan.id, &plan.state, &serde_json::to_string(plan)?)?;
+        Ok(())
+    }
+    fn record_cleanup_transition(
+        &self,
+        plan: &CleanupPlan,
+        index: usize,
+        event: &str,
+        message: &str,
+    ) -> Result<(), Error> {
+        self.database.record_cleanup_transition(
+            plan.id,
+            &plan.state,
+            &serde_json::to_string(plan)?,
+            &benchlight_db::OperationEvent {
+                timestamp: timestamp(),
+                path: plan.items[index]
+                    .candidate
+                    .path
+                    .to_string_lossy()
+                    .into_owned(),
+                state: event.into(),
+                message: message.into(),
+            },
+        )?;
         Ok(())
     }
     pub fn cleanup_plan(&self, id: i64) -> Result<CleanupPlan, Error> {
@@ -309,20 +332,12 @@ impl Benchlight {
                     .transpose()?;
                 self.validate_cleanup_item(item)?;
                 let staged = guard.staging_path()?;
-                let original = item.candidate.path.clone();
                 plan.items[index].staged_path = Some(staged.clone());
                 plan.items[index].state = "staging".into();
-                self.save_cleanup_plan(&plan)?;
-                self.database.log_operation(
-                    id,
-                    timestamp(),
-                    &original.to_string_lossy(),
-                    "staging",
-                    &staged.to_string_lossy(),
-                )?;
+                self.record_cleanup_transition(&plan, index, "staging", &staged.to_string_lossy())?;
                 guard.stage(&staged)?;
                 plan.items[index].state = "staged".into();
-                self.save_cleanup_plan(&plan)?;
+                self.record_cleanup_transition(&plan, index, "staged", &staged.to_string_lossy())?;
                 if fingerprint(&staged)? != plan.items[index].fingerprint {
                     return Err(reject(
                         "Staged contents changed; retained at the recovery path. Nothing was recycled.",
@@ -340,7 +355,7 @@ impl Benchlight {
             let (state, message) = match result {
                 Ok(()) => (
                     "recycled",
-                    "Moved to the Windows Recycle Bin. Restore the staged name there; the log records its original path.".to_owned(),
+                    "Windows confirmed recycling. Restore the staged name from the Recycle Bin if needed; the log records its original path.".to_owned(),
                 ),
                 Err(error) => ("failed", error.to_string()),
             };
@@ -354,14 +369,7 @@ impl Benchlight {
             }
             plan.items[index].state = state.into();
             plan.items[index].message = Some(message.clone());
-            self.save_cleanup_plan(&plan)?;
-            self.database.log_operation(
-                id,
-                timestamp(),
-                &plan.items[index].candidate.path.to_string_lossy(),
-                state,
-                &message,
-            )?;
+            self.record_cleanup_transition(&plan, index, state, &message)?;
             if state == "failed" {
                 break;
             }
@@ -380,6 +388,7 @@ impl Benchlight {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::AtomicBool;
     #[test]
     fn dangerous_paths_are_rejected_before_candidate_lookup() {
         for path in [
@@ -394,6 +403,50 @@ mod tests {
         }
         if let Some(profile) = std::env::var_os("USERPROFILE") {
             assert!(protect(Path::new(&profile)).is_err());
+        }
+    }
+    #[test]
+    fn persisted_interrupted_staging_is_never_retried_after_reopen() {
+        for renamed in [false, true] {
+            let temporary = tempfile::tempdir().unwrap();
+            let project = temporary.path().join("project");
+            let artifact = project.join("node_modules");
+            fs::create_dir_all(&artifact).unwrap();
+            fs::write(
+                project.join("package.json"),
+                r#"{"dependencies":{"test":"1"}}"#,
+            )
+            .unwrap();
+            fs::write(artifact.join("fixture"), "disposable").unwrap();
+            let data = temporary.path().join("data");
+            let app = Benchlight::open(data.clone()).unwrap();
+            app.add_root(&project).unwrap();
+            app.scan(&AtomicBool::new(false)).unwrap();
+            let mut plan = app
+                .create_cleanup_plan(std::slice::from_ref(&artifact))
+                .unwrap();
+            let staged = artifact.with_file_name("benchlight-recovery-fixture");
+            plan.state = "applying".into();
+            plan.items[0].state = if renamed { "staged" } else { "staging" }.into();
+            plan.items[0].staged_path = Some(staged.clone());
+            app.save_cleanup_plan(&plan).unwrap();
+            if renamed {
+                fs::rename(&artifact, &staged).unwrap();
+            }
+            drop(app);
+            let reopened = Benchlight::open(data).unwrap();
+            let persisted = reopened.cleanup_plan(plan.id).unwrap();
+            assert_eq!(
+                persisted.items[0].staged_path.as_deref(),
+                Some(staged.as_path())
+            );
+            assert!(
+                reopened
+                    .apply_cleanup_plan(plan.id, &format!("RECYCLE {}", plan.id))
+                    .is_err()
+            );
+            assert_eq!(artifact.exists(), !renamed);
+            assert_eq!(staged.exists(), renamed);
         }
     }
 }

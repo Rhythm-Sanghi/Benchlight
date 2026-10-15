@@ -5,8 +5,9 @@ import {
   type Observation,
   type Project,
   type Snapshot,
+  type SnapshotHistorySize,
 } from './api';
-import { displayPath } from './format';
+import { displayPath, size } from './format';
 import { SectionHeading, StateLabel } from './Interface';
 
 function observation(value: Observation) {
@@ -20,6 +21,8 @@ export function Changes({ scanId }: { scanId?: number }) {
   const [path, setPath] = useState('');
   const [savedBaseline, setBaseline] = useState<Snapshot | null>(null);
   const [savedComparison, setComparison] = useState<Comparison>();
+  const [history, setHistory] = useState<SnapshotHistorySize | null>(null);
+  const [historyConfirmation, setHistoryConfirmation] = useState('');
   const baseline = savedBaseline?.project === path ? savedBaseline : null;
   const comparison =
     savedComparison?.current.project === path ? savedComparison : undefined;
@@ -51,11 +54,12 @@ export function Changes({ scanId }: { scanId?: number }) {
   useEffect(() => {
     let active = true;
     if (!path) return;
-    void api
-      .workingSnapshot(path)
-      .then((value) => {
+    void Promise.all([api.workingSnapshot(path), api.snapshotHistorySize(path)])
+      .then(([value, count]) => {
         if (active) {
           setBaseline(value);
+          setHistory(count);
+          setHistoryConfirmation('');
           setError('');
         }
       })
@@ -75,10 +79,30 @@ export function Changes({ scanId }: { scanId?: number }) {
     try {
       if (mark) {
         setBaseline(await api.markWorking(path));
+        setHistory(await api.snapshotHistorySize(path));
         setComparison(undefined);
       } else setComparison(await api.compareWorking(path));
     } catch (error) {
       setError(String(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function removeHistory() {
+    if (!history || history.records < 2) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.removeOlderSnapshots(
+        path,
+        history.records,
+        historyConfirmation,
+      );
+      setHistory(result);
+      setHistoryConfirmation('');
+    } catch (error) {
+      setError(String(error));
+      setHistory(await api.snapshotHistorySize(path).catch(() => history));
     } finally {
       setBusy(false);
     }
@@ -115,6 +139,8 @@ export function Changes({ scanId }: { scanId?: number }) {
             setPath(event.target.value);
             setBaseline(null);
             setComparison(undefined);
+            setHistory(null);
+            setHistoryConfirmation('');
           }}
         >
           {projects.map((project) => (
@@ -172,6 +198,40 @@ export function Changes({ scanId }: { scanId?: number }) {
           This records your assertion; Benchlight does not run the project's
           tests.
         </p>
+      )}
+      {history && !loading && (
+        <section aria-label="Working history">
+          <p className="muted">
+            Local working history: {history.records} record
+            {history.records === 1 ? '' : 's'} · approximately{' '}
+            {size(history.stored_bytes)} of stored metadata. The latest baseline
+            is kept.
+          </p>
+          {history.records > 1 && (
+            <div className="action-group">
+              <label htmlFor="history-confirmation">
+                To remove {history.records - 1} older records, type{' '}
+                <code>REMOVE {history.records - 1} OLDER SNAPSHOTS</code>
+              </label>
+              <input
+                id="history-confirmation"
+                value={historyConfirmation}
+                disabled={busy}
+                onChange={(event) => setHistoryConfirmation(event.target.value)}
+              />
+              <button
+                disabled={
+                  busy ||
+                  historyConfirmation !==
+                    `REMOVE ${history.records - 1} OLDER SNAPSHOTS`
+                }
+                onClick={() => void removeHistory()}
+              >
+                Remove older history
+              </button>
+            </div>
+          )}
+        </section>
       )}
       {comparison && (
         <>

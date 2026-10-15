@@ -91,6 +91,11 @@ pub struct Comparison {
     pub current: Snapshot,
     pub changes: Vec<Change>,
 }
+#[derive(Debug, Serialize)]
+pub struct SnapshotHistorySize {
+    pub records: i64,
+    pub stored_bytes: i64,
+}
 
 impl Benchlight {
     fn snapshot_project(&self, path: &Path) -> Result<PathBuf, Error> {
@@ -117,6 +122,34 @@ impl Benchlight {
             .working_snapshot(&path.to_string_lossy())?
             .map(|json| Ok(serde_json::from_str(&json)?))
             .transpose()
+    }
+    pub fn snapshot_history_size(&self, path: &Path) -> Result<SnapshotHistorySize, Error> {
+        let project = self.snapshot_project(path)?;
+        let (records, stored_bytes) = self
+            .database
+            .snapshot_history_size(&project.to_string_lossy())?;
+        Ok(SnapshotHistorySize {
+            records,
+            stored_bytes,
+        })
+    }
+    pub fn remove_older_snapshots(
+        &self,
+        path: &Path,
+        expected_count: i64,
+        confirmation: &str,
+    ) -> Result<SnapshotHistorySize, Error> {
+        if expected_count < 2
+            || confirmation != format!("REMOVE {} OLDER SNAPSHOTS", expected_count - 1)
+        {
+            return Err(Error::InvalidRoot(
+                "Confirm the exact number of older records before removing local history.".into(),
+            ));
+        }
+        let project = self.snapshot_project(path)?;
+        self.database
+            .remove_older_snapshots(&project.to_string_lossy(), expected_count)?;
+        self.snapshot_history_size(&project)
     }
     pub fn mark_working(&self, path: &Path) -> Result<Snapshot, Error> {
         let snapshot = self.capture_snapshot(path)?;

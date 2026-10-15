@@ -88,8 +88,9 @@ export function Tools() {
       {menu.view}
       <div className="toolbar work-toolbar">
         <p>
-          Known tools on PATH. Refresh runs bounded version commands for native
-          executables; script wrappers are inspected as metadata.
+          Known tools on PATH. Refresh launches native executables with bounded
+          version commands; these processes are not sandboxed. Script wrappers
+          are inspected as metadata.
         </p>
         <button
           className="button-primary"
