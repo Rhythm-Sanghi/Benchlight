@@ -216,9 +216,10 @@ export function Cleanup({
                       )}
                       {item.state === 'failed' && item.staged_path && (
                         <p role="status">
-                          Cleanup stopped. Check the staging path above. If the
-                          directory is there, restore it only after confirming
-                          the original location is free.
+                          Cleanup stopped without a confirmed recycle result.
+                          Check the staging path above. If it is absent, look
+                          for that staged name in the Recycle Bin. Restore it
+                          only after confirming the original location is free.
                         </p>
                       )}
                       {item.state === 'failed' && !item.staged_path && (

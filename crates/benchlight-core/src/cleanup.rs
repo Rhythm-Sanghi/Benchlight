@@ -359,14 +359,6 @@ impl Benchlight {
                 ),
                 Err(error) => ("failed", error.to_string()),
             };
-            if state == "failed"
-                && plan.items[index]
-                    .staged_path
-                    .as_ref()
-                    .is_some_and(|path| !path.exists())
-            {
-                plan.items[index].staged_path = None;
-            }
             plan.items[index].state = state.into();
             plan.items[index].message = Some(message.clone());
             self.record_cleanup_transition(&plan, index, state, &message)?;

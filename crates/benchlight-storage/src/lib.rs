@@ -2,6 +2,7 @@ use benchlight_platform_windows::is_reparse_point;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 pub mod fingerprint;
+const MAX_MEMBERSHIP_NAMES: usize = 100_000;
 use std::{
     collections::HashSet,
     ffi::OsString,
@@ -228,11 +229,7 @@ pub fn measure_directory_excluding(
             while let Some((entries, parent, before, names, too_many)) = frames.last_mut() {
                 match entries.next() {
                     Some(Ok(entry)) => {
-                        if names.len() < 100_000 {
-                            names.insert(entry.file_name());
-                        } else {
-                            *too_many = true;
-                        }
+                        observe_name(names, too_many, entry.file_name());
                         return Some(entry.path());
                     }
                     Some(Err(failure)) => {
@@ -246,7 +243,8 @@ pub fn measure_directory_excluding(
                             .as_ref()
                             != Some(before);
                         let membership_changed = *too_many
-                            || !matches_directory_membership(parent, names).unwrap_or(false);
+                            || !matches_directory_membership(parent, names, cancel)
+                                .unwrap_or(false);
                         if timestamp_changed || membership_changed {
                             result.errors += 1;
                             error(
@@ -302,13 +300,37 @@ pub fn measure_directory_excluding(
     result
 }
 
-fn matches_directory_membership(path: &Path, names: &HashSet<OsString>) -> io::Result<bool> {
+fn observe_name(names: &mut HashSet<OsString>, too_many: &mut bool, name: OsString) {
+    if names.len() < MAX_MEMBERSHIP_NAMES {
+        names.insert(name);
+    } else {
+        *too_many = true;
+    }
+}
+
+fn matches_directory_membership(
+    path: &Path,
+    names: &HashSet<OsString>,
+    cancel: &AtomicBool,
+) -> io::Result<bool> {
     let mut count = 0;
     for entry in fs::read_dir(path)? {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "Directory membership recheck was cancelled.",
+            ));
+        }
         count += 1;
         if count > names.len() || !names.contains(&entry?.file_name()) {
             return Ok(false);
         }
+    }
+    if cancel.load(Ordering::Relaxed) {
+        return Err(io::Error::new(
+            io::ErrorKind::Interrupted,
+            "Directory membership recheck was cancelled.",
+        ));
     }
     Ok(count == names.len())
 }
@@ -420,8 +442,71 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         fs::write(root.path().join("one"), [0; 7]).unwrap();
         let observed = HashSet::from([OsString::from("one")]);
-        assert!(matches_directory_membership(root.path(), &observed).unwrap());
+        let cancel = AtomicBool::new(false);
+        assert!(matches_directory_membership(root.path(), &observed, &cancel).unwrap());
         fs::write(root.path().join("new"), [0; 3]).unwrap();
-        assert!(!matches_directory_membership(root.path(), &observed).unwrap());
+        assert!(!matches_directory_membership(root.path(), &observed, &cancel).unwrap());
+    }
+    #[test]
+    fn membership_recheck_detects_deletion_rename_and_missing_directory() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("one"), [0; 7]).unwrap();
+        let observed = HashSet::from([OsString::from("one")]);
+        let cancel = AtomicBool::new(false);
+        fs::rename(root.path().join("one"), root.path().join("two")).unwrap();
+        assert!(!matches_directory_membership(root.path(), &observed, &cancel).unwrap());
+        fs::remove_file(root.path().join("two")).unwrap();
+        assert!(!matches_directory_membership(root.path(), &observed, &cancel).unwrap());
+        fs::remove_dir(root.path()).unwrap();
+        assert!(matches_directory_membership(root.path(), &observed, &cancel).is_err());
+    }
+    #[test]
+    fn membership_recheck_can_be_cancelled_without_reporting_complete() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("one"), [0; 7]).unwrap();
+        let observed = HashSet::from([OsString::from("one")]);
+        let cancel = AtomicBool::new(true);
+        assert_eq!(
+            matches_directory_membership(root.path(), &observed, &cancel)
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::Interrupted
+        );
+    }
+    #[test]
+    fn deletion_or_rename_during_enumeration_is_partial() {
+        for renamed in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            fs::write(root.path().join("one"), [0; 7]).unwrap();
+            let mut changed = false;
+            let measurement = measure_directory(
+                root.path(),
+                &AtomicBool::new(false),
+                |_, _| {},
+                |progress| {
+                    if !changed && progress.files > 0 {
+                        let original = root.path().join("one");
+                        if renamed {
+                            fs::rename(original, root.path().join("two")).unwrap();
+                        } else {
+                            fs::remove_file(original).unwrap();
+                        }
+                        changed = true;
+                    }
+                },
+            );
+            assert!(changed);
+            assert!(measurement.errors > 0, "{measurement:?}");
+        }
+    }
+    #[test]
+    fn membership_name_budget_is_bounded() {
+        let mut names = HashSet::new();
+        let mut too_many = false;
+        for index in 0..=MAX_MEMBERSHIP_NAMES {
+            observe_name(&mut names, &mut too_many, OsString::from(index.to_string()));
+        }
+        assert_eq!(names.len(), MAX_MEMBERSHIP_NAMES);
+        assert!(too_many);
     }
 }

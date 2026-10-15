@@ -60,6 +60,46 @@ fn changed_contents_and_project_evidence_block_apply() {
     assert!(artifact.exists());
 }
 #[test]
+fn incomplete_candidate_with_skipped_junction_cannot_authorize_cleanup() {
+    let temporary = tempfile::tempdir().unwrap();
+    let project = temporary.path().join("project");
+    let artifact = project.join("node_modules");
+    let outside = temporary.path().join("outside");
+    fs::create_dir_all(&artifact).unwrap();
+    fs::create_dir(&outside).unwrap();
+    fs::write(
+        project.join("package.json"),
+        r#"{"dependencies":{"fixture":"1"}}"#,
+    )
+    .unwrap();
+    fs::write(artifact.join("fixture"), "disposable").unwrap();
+    fs::write(outside.join("keep"), "never recycle").unwrap();
+    let link = artifact.join("junction");
+    let status = std::process::Command::new("cmd.exe")
+        .args(["/c", "mklink", "/J"])
+        .arg(&link)
+        .arg(&outside)
+        .output()
+        .unwrap();
+    assert!(status.status.success());
+    let app = Benchlight::open(temporary.path().join("metadata")).unwrap();
+    app.add_root(&project).unwrap();
+    app.scan(&AtomicBool::new(false)).unwrap();
+    let candidate = app
+        .candidate(&fs::canonicalize(&artifact).unwrap())
+        .unwrap();
+    assert!(!candidate.complete);
+    assert!(
+        app.create_cleanup_plan(&[candidate.path]).is_err(),
+        "An incomplete scan cannot authorize cleanup"
+    );
+    assert_eq!(
+        fs::read_to_string(outside.join("keep")).unwrap(),
+        "never recycle"
+    );
+    fs::remove_dir(link).unwrap();
+}
+#[test]
 fn replacement_with_same_files_and_size_is_rejected() {
     let (_temporary, app, _project, artifact) = fixture();
     let plan = app

@@ -40,7 +40,10 @@ permanent-delete operations and success requires the Shell to report a Recycle
 Bin item. Benchlight has no permanent deletion implementation.
 
 A failed or interrupted operation may leave a staged directory. The plan and
-operation log record both paths; inspect these before restoring. Benchlight never
+operation log retain both paths even if the staged path is later absent; check
+that name in the Recycle Bin as well. SQLite updates and Windows Shell recycling
+do not share an atomic transaction, so an absent staged path alone cannot
+prove whether recycling succeeded. Inspect these paths before restoring. Benchlight never
 automatically retries an attempted plan or overwrites a newly created directory.
 Windows can restore recycled items; it restores the staging name. Rename it to
 the original name recorded in the log after checking that name is available.

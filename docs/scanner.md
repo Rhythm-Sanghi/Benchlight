@@ -27,8 +27,9 @@ Windows volumes; unusual case-sensitive directory configurations can lose
 discoveries and are not supported for cleanup claims.
 
 Directory modification times and exact entry names are rechecked when enumeration
-finishes (up to 100,000 names per directory). Membership changes/disappearances
-report a partial measurement. This is not an atomic
+finishes (up to 100,000 names per directory). Larger directories and failed or
+cancelled rechecks remain partial. Membership changes/disappearances report a
+partial measurement. This is not an atomic
 filesystem snapshot; content can change without a directory timestamp changing.
 
 Known global cache locations are opt-in in Settings. Custom tool configurations
