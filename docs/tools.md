@@ -42,3 +42,11 @@ Sources: [Windows uninstall registry](https://learn.microsoft.com/en-us/powershe
 [Scoop source](https://github.com/ScoopInstaller/Scoop),
 [Windows job objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects),
 [rustup environment controls](https://rust-lang.github.io/rustup/environment-variables.html).
+
+
+## Interpreting installation origins
+
+Installation channel is an inference from local evidence, not a guarantee of
+package-manager ownership. PATH precedence, metadata, probe limits and unknown
+results are described above. Benchlight does not contact online catalogs to
+establish these origins.
