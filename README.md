@@ -118,11 +118,9 @@ with your Windows version, steps to reproduce and expected behavior. Remove
 private paths and project information from logs before sharing them. Report
 security problems privately as described in [SECURITY.md](SECURITY.md).
 
-Verified checks: formatting, Clippy with warnings denied, 38 Rust tests, frontend
-formatting/lint/typecheck, 20 frontend tests, 80 text-contrast checks and production build. Native release
-screens, fixture recycling, installer lifecycle and WebView outbound-blocked
-operation were reviewed on Windows. Windows CI runs on GitHub Actions. Different-version
-installer upgrades and live OneDrive/removable-drive cases remain unverified.
+Current automated checks are linked in the Windows checks badge above. See
+[0.1.0 verification](docs/releases/0.1.0.md#verification) for the recorded release
+checks and [compatibility notes](STATUS.md) for remaining platform limits.
 
 ## Scope and limits
 
