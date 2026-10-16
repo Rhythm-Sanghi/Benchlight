@@ -11,7 +11,7 @@ upgrade from the published 0.1.0 installer preserved roots, exclusions, theme,
 snapshots and cleanup-plan history. Fresh installation, same-version reinstall,
 uninstall and local-data preservation passed. Installed 0.1.1 desktop navigation,
 fixture scanning, tool refresh, comparison, cleanup review, settings and restart
-were checked; see the [qualification report](docs/qualification-0.1.1.md).
+were checked.
 Windows CI runs the automated checks and builds the installer; see the
 [release guide](docs/release.md).
 
