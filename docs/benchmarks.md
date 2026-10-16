@@ -17,3 +17,19 @@ Run `scripts/benchmark.ps1` to reproduce. OS filesystem caches were not flushed.
 Other development builds and a repository scan ran during this measurement;
 filesystem and CPU contention make it unsuitable for comparison with earlier runs.
 Changing classification or fixtures requires a new measurement before comparing.
+
+2026-10-15, same development host, optimized build with directory-membership
+recheck. Three consecutive runs of `scripts/benchmark.ps1`; no filesystem
+cache flush. Each run created its own temporary 50-project / 20,050-file fixture
+and measured 10,240,100 logical bytes.
+
+| Run | Scan | 100 page queries | Cancellation | Sampled process working set peak |
+| --- | --- | --- | --- | --- |
+| 1 | 1,949 ms | 30 ms | 7 ms | 9,379,840 bytes |
+| 2 | 2,183 ms | 117 ms | 6 ms | 7,933,952 bytes |
+| 3 | 1,297 ms | 26 ms | 1 ms | 8,011,776 bytes |
+
+Scan times varied from 1,297 to 2,183 ms. The October 7 run was made under
+different machine load, so this is not evidence of a speedup. All three scans
+completed and cancellation returned `cancelled`; a blocked filesystem call can
+still delay cancellation.

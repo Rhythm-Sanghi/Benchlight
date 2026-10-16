@@ -57,6 +57,17 @@ export function Cleanup({
     } catch (error) {
       setError(String(error));
       setValidated(false);
+      // Apply can change filesystem and plan state before a later database error.
+      // Reload persisted outcomes instead of leaving a stale preview on screen.
+      try {
+        const current = await api.cleanupPlans();
+        setPlans(current);
+        if (selected) {
+          setSelected(current.find((plan) => plan.id === selected.id));
+        }
+      } catch {
+        // Keep the original failure visible; reopening plans can be retried.
+      }
     } finally {
       setBusy(false);
     }
@@ -162,13 +173,19 @@ export function Cleanup({
               ×
             </button>
           </div>
+          {selected.state === 'applying' && (
+            <p role="status">
+              This cleanup was interrupted before a final result was recorded.
+              Inspect each directory below; this plan cannot be applied again.
+            </p>
+          )}
           <div className="table-scroll">
             <table className="cleanup-review">
               <thead>
                 <tr>
                   <th>Directory</th>
                   <th>Classification</th>
-                  <th className="numeric">Estimate</th>
+                  <th className="numeric">Logical size</th>
                   <th>Result</th>
                 </tr>
               </thead>
@@ -186,10 +203,36 @@ export function Cleanup({
                       {item.message && <p>{item.message}</p>}
                       {item.staged_path && (
                         <p>
-                          Recovery/Recycle Bin name:{' '}
+                          Staging / Recycle Bin name:{' '}
                           <code>{displayPath(item.staged_path)}</code>
                         </p>
                       )}
+                      {['staging', 'staged'].includes(item.state) && (
+                        <p role="status">
+                          Recycling was not confirmed. Do not retry this plan.
+                          Check the original location, the staging path and the
+                          Recycle Bin before making another plan.
+                        </p>
+                      )}
+                      {item.state === 'failed' && item.staged_path && (
+                        <p role="status">
+                          Cleanup stopped without a confirmed recycle result.
+                          Check the staging path above. If it is absent, look
+                          for that staged name in the Recycle Bin. Restore it
+                          only after confirming the original location is free.
+                        </p>
+                      )}
+                      {item.state === 'failed' && !item.staged_path && (
+                        <p role="status">
+                          Cleanup stopped before staging was confirmed. Check
+                          the original directory and rescan before planning
+                          again.
+                        </p>
+                      )}
+                      {item.state === 'pending' &&
+                        selected.state !== 'preview' && (
+                          <p>Not attempted after this plan stopped.</p>
+                        )}
                     </td>
                     <td>
                       <StateLabel value={item.candidate.classification}>
@@ -207,6 +250,11 @@ export function Cleanup({
               </tbody>
             </table>
           </div>
+          <p className="page-note">
+            Sizes are logical file lengths, not guaranteed recovered space.
+            Plans contain complete measurements from their scan and are checked
+            again before recycling.
+          </p>
           {selected.state === 'preview' && (
             <>
               <p>

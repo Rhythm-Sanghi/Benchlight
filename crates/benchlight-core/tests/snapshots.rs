@@ -66,3 +66,39 @@ fn working_state_persists_and_comparison_does_not_replace_it() {
     assert_eq!(saved.observations, baseline.observations);
     assert!(app.mark_working(temporary.path()).is_err());
 }
+
+#[test]
+fn older_working_history_requires_exact_confirmation_and_keeps_latest() {
+    let temporary = tempfile::tempdir().unwrap();
+    let project = temporary.path().join("project");
+    fs::create_dir(&project).unwrap();
+    fs::write(project.join("package.json"), "{}").unwrap();
+    let data = temporary.path().join("data");
+    let app = Benchlight::open(data.clone()).unwrap();
+    app.add_root(&project).unwrap();
+    app.scan(&AtomicBool::new(false)).unwrap();
+    let first = app.mark_working(&project).unwrap();
+    fs::write(project.join("package-lock.json"), "second").unwrap();
+    let latest = app.mark_working(&project).unwrap();
+    assert_eq!(app.snapshot_history_size(&project).unwrap().records, 2);
+    assert!(app.remove_older_snapshots(&project, 2, "REMOVE 1").is_err());
+    assert_eq!(app.snapshot_history_size(&project).unwrap().records, 2);
+    assert!(
+        app.remove_older_snapshots(&project, 3, "REMOVE 2 OLDER SNAPSHOTS")
+            .is_err()
+    );
+    app.remove_older_snapshots(&project, 2, "REMOVE 1 OLDER SNAPSHOTS")
+        .unwrap();
+    assert_eq!(app.snapshot_history_size(&project).unwrap().records, 1);
+    assert_ne!(first.observations, latest.observations);
+    drop(app);
+    let reopened = Benchlight::open(data).unwrap();
+    assert_eq!(
+        reopened
+            .working_snapshot(&project)
+            .unwrap()
+            .unwrap()
+            .observations,
+        latest.observations
+    );
+}

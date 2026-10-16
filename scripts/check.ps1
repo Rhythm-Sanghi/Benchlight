@@ -6,6 +6,7 @@ try {
     & "$PSScriptRoot/cli-sidecar.ps1"
     Invoke-Check { cargo clippy --workspace --all-targets -- -D warnings }
     Invoke-Check { cargo test --workspace }
+    Invoke-Check { & "$PSScriptRoot/test-source-archive.ps1" }
     Push-Location apps/desktop
     try {
         Invoke-Check { npm run format:check }

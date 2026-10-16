@@ -121,11 +121,27 @@ export interface Comparison {
     state: string;
   }[];
 }
+export interface SnapshotHistorySize {
+  records: number;
+  stored_bytes: number;
+}
 
 export const api = {
   exportLogs: (path: string) => invoke<void>('export_logs', { path }),
   workingSnapshot: (path: string) =>
     invoke<Snapshot | null>('working_snapshot', { path }),
+  snapshotHistorySize: (path: string) =>
+    invoke<SnapshotHistorySize>('snapshot_history_size', { path }),
+  removeOlderSnapshots: (
+    path: string,
+    expectedCount: number,
+    confirmation: string,
+  ) =>
+    invoke<SnapshotHistorySize>('remove_older_snapshots', {
+      path,
+      expectedCount,
+      confirmation,
+    }),
   markWorking: (path: string) => invoke<Snapshot>('mark_working', { path }),
   compareWorking: (path: string) =>
     invoke<Comparison>('compare_working', { path }),
