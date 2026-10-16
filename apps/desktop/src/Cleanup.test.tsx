@@ -125,7 +125,9 @@ it('reloads a persisted failure after apply returns an error', async () => {
     screen.getByRole('button', { name: 'Move to Recycle Bin' }),
   );
   expect(
-    await screen.findByText(/Cleanup stopped without a confirmed recycle result/),
+    await screen.findByText(
+      /Cleanup stopped without a confirmed recycle result/,
+    ),
   ).toBeInTheDocument();
   expect(screen.getByText(/If it is absent, look/)).toBeInTheDocument();
   expect(screen.getByText(/benchlight-recycle-fixture/)).toBeInTheDocument();
