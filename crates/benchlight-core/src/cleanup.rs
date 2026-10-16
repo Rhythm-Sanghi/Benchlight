@@ -404,6 +404,7 @@ mod tests {
             let project = temporary.path().join("project");
             let artifact = project.join("node_modules");
             fs::create_dir_all(&artifact).unwrap();
+            let artifact = fs::canonicalize(artifact).unwrap();
             fs::write(
                 project.join("package.json"),
                 r#"{"dependencies":{"test":"1"}}"#,
